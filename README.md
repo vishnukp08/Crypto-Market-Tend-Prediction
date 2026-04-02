@@ -9,58 +9,63 @@ The goal of this project is to provide high-accuracy, 1-minute interval Bitcoin 
 
 ## 🏗️ Architecture & Flow
 ```mermaid
+---
+config:
+  layout: fixed
+---
 flowchart TB
-    %% Styling
+ subgraph Sources["Live Data Sources"]
+        BybitWS["Bybit WebSocket<br>(1m OHLCV)"]
+        RedditAPI["Reddit API<br>(Social Crypto Threads)"]
+        BybitREST["Bybit REST API<br>(200m Historical Warm-up)"]
+  end
+ subgraph Ingestion["Feature Engineering"]
+        Candles["Candle Buffer<br>(200 History Data + 100 Live Data)"]
+        Stats["Technical indicators Extracting<br>(MACD, ATR, BB, EMA)"]
+        NLP_Scraper["Text Preprocessing<br>(Noise Removal, Slang Translation, etc)"]
+        Scores["Text Scoring<br>(VADER + RoBERTa)"]
+        Merger["Time-Sync Feature Merger"]
+        Scaler["Dynamic Live Scaler<br>(Real-time Normalization)"]
+  end
+ subgraph Core["Core TFT Engine"]
+        TFT["Temporal Fusion Transformer<br>(Self-Attention Model)"]
+  end
+ subgraph Outputs["Outputs & Presentation"]
+        Pred["1-Min Forecasting<br>(Price Target &amp; Signal)"]
+        XAI["XAI Interpretability<br>(Attention Weights)"]
+        Django["Live Django Dashboard<br>"]
+  end
+    BybitWS --> Candles
+    BybitREST --> Candles
+    Candles --> Stats
+    RedditAPI --> NLP_Scraper
+    NLP_Scraper --> Scores
+    Stats --> Merger
+    Scores --> Merger
+    Merger --> Scaler
+    Scaler --> Core
+    TFT --> Pred & XAI
+    Pred --> Django
+    XAI --> Django
+
+     BybitWS:::source
+     RedditAPI:::source
+     BybitREST:::source
+     Candles:::process
+     Stats:::process
+     NLP_Scraper:::process
+     Scores:::process
+     Merger:::process
+     Scaler:::process
+     TFT:::model
+     Pred:::output
+     XAI:::output
+     Django:::ui
     classDef source fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#fff
     classDef process fill:#334155,stroke:#818cf8,stroke-width:2px,color:#fff
     classDef model fill:#4c1d95,stroke:#c084fc,stroke-width:2px,color:#fff
     classDef output fill:#0f172a,stroke:#34d399,stroke-width:2px,color:#fff
     classDef ui fill:#020617,stroke:#fb7185,stroke-width:2px,color:#fff
-
-    subgraph Sources ["📡 Live Data Sources"]
-        BybitWS["Bybit WebSocket<br/>(1m OHLCV)"]:::source
-        RedditAPI["Reddit API<br/>(Social Crypto Threads)"]:::source
-        BybitREST["Bybit REST API<br/>(200m Historical Warm-up)"]:::source
-    end
-
-    subgraph Ingestion ["⚙️ Feature Engineering"]
-        Candles["Candle Buffer<br/>(State Memory)"]:::process
-        Stats["Technical Extractors<br/>(MACD, ATR, BB, EMA)"]:::process
-        
-        NLP_Scraper["Text Cleaning<br/>(Slang Translation)"]:::process
-        Scores["Text Scoring<br/>(VADER + RoBERTa)"]:::process
-    end
-
-    BybitWS --> Candles
-    BybitREST --> Candles
-    Candles --> Stats
-
-    RedditAPI --> NLP_Scraper
-    NLP_Scraper --> Scores
-
-    subgraph Core ["🧠 Core AI Engine (PyTorch)"]
-        Merger["Time-Sync Feature Merger"]:::process
-        Scaler["Dynamic Live Scaler<br/>(Real-time Normalization)"]:::process
-        TFT["Temporal Fusion Transformer<br/>(Self-Attention Model)"]:::model
-    end
-
-    Stats --> Merger
-    Scores --> Merger
-    Merger --> Scaler
-    Scaler --> TFT
-
-    subgraph Outputs ["📊 Outputs & Presentation"]
-        Pred["1-Min Forecast<br/>(Price Target & Signal)"]:::output
-        XAI["XAI Interpretability<br/>(Attention Weights)"]:::output
-        JSON["dashboard_data.json<br/>(Atomic State Export)"]:::output
-        Django["Live Web Dashboard<br/>(Tailwind + Chart.js)"]:::ui
-    end
-
-    TFT --> Pred
-    TFT --> XAI
-    Pred --> JSON
-    XAI --> JSON
-    JSON --> Django
 ```
 
 ---
