@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Bitcoin Predictor - Live Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#0B0F19',
+                        panel: 'rgba(30, 41, 59, 0.65)',
+                    },
+                    fontFamily: {
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0B0F19 0%, #1a1525 100%);
+            color: #f8fafc;
+        }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .text-glow {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .gradient-border {
+            position: relative;
+            background: rgba(15, 23, 42, 0.8);
+            background-clip: padding-box;
+            border: 1px solid transparent;
+        }
+
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: -1;
+            margin: -1px;
+            border-radius: inherit;
+            background: linear-gradient(to right, #38bdf8, #818cf8, #c084fc);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen font-sans antialiased bg-fixed flex flex-col items-center">
+    <!-- Header -->
+    <header class="w-full max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
+        <div>
+            <h1
+                class="text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500 mb-1">
+                BTC/USDT Market Prediction
+            </h1>
+            <p class="text-slate-400 font-mono text-sm uppercase tracking-widest"><span
+                    class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2"></span>Live 1 minute Trend Forecasting</p>
+        </div>
+        <div class="text-right">
+            <p class="text-slate-500 text-sm">Last Update</p>
+            <p id="last-update" class="font-mono font-medium text-slate-300">Loading...</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 pb-20">
+
+        <!-- Top Hero Row -->
+        <div class="lg:col-span-8 glass rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-8 opacity-10">
+                <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z" />
+                </svg>
+            </div>
+
+            <div class="flex flex-col flex-grow mt-2">
+                <div class="flex flex-col md:flex-row md:items-end gap-6 mb-4">
+                    <div>
+                        <p class="text-slate-500 text-sm font-medium mb-1">Current Price</p>
+                        <p class="text-3xl font-mono" id="current-price">$0.00</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500 text-sm font-medium mb-1">Predicted Price</p>
+                        <p class="text-5xl font-mono font-bold text-glow text-white" id="target-price">$0.00</p>
+                    </div>
+                    <div class="gradient-border rounded-xl px-4 py-2 ml-auto">
+                        <p class="text-slate-400 text-xs text-center uppercase tracking-wider mb-1">Trading Signal</p>
+                        <p class="text-2xl font-bold text-center" id="trend-signal">-</p>
+                        <p class="text-center font-mono text-sm mt-1" id="trade-action">-</p>
+                    </div>
+                </div>
+                
+                <div class="w-full relative flex-grow mt-4 min-h-[20rem] lg:min-h-[24rem]">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Social Sentiment & Market Indicators -->
+        <div class="lg:col-span-4 flex flex-col gap-6">
+            <!-- Sentiment -->
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-slate-300 mb-4">Sentiment Scores</h3>
+                <p class="text-sm leading-relaxed text-gray-400 mb-4 font-medium"
+                    style="color:#cbd5f5; font-family: 'Segoe UI', sans-serif;">
+                    This panel provides a real-time overview of market sentiment derived from social media activity.
+                </p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                        <p class="text-xs text-slate-400 mb-1">Reddit Tweets Count</p>
+                        <p class="text-xl font-mono font-semibold" id="tweet-count">0</p>
+                    </div>
+                    <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                        <p class="text-xs text-slate-400 mb-1">VADER Score</p>
+                        <p class="text-xl font-mono font-semibold" id="vader-score">0.00</p>
+                    </div>
+                    <div class="col-span-2 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                        <p class="text-xs text-slate-400 mb-1">RoBERTa Score</p>
+                        <div class="flex justify-between items-center">
+                            <p class="text-2xl font-mono font-semibold" id="roberta-score">0.00</p>
+                            <div class="w-1/2 bg-slate-700 rounded-full h-2 overflow-hidden">
+                                <div id="roberta-bar"
+                                    class="h-full bg-gradient-to-r from-rose-500 via-slate-400 to-emerald-500 w-1/2 transition-all duration-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Analysis -->
+            <div class="glass rounded-2xl p-6 flex-grow">
+                <h3 class="text-lg font-semibold text-slate-300 mb-4">Feature Extractors</h3>
+                <p class="text-sm leading-relaxed text-gray-400 mb-4 font-medium"
+                    style="color:#cbd5f5; font-family: 'Segoe UI', sans-serif;">
+                    This panel displays key technical indicators extracted from real-time market price data. </p>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                        <span class="text-slate-400">MACD Base</span>
+                        <span class="font-mono font-medium" id="macd-val">0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                        <span class="text-slate-400">ATR Volatility</span>
+                        <span class="font-mono font-medium" id="atr-val">0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                        <span class="text-slate-400">Volume</span>
+                        <span class="font-mono font-medium" id="volume-val">0.00</span>
+                    </div>
+                    <div>
+                        <p class="text-slate-400 text-sm mb-2 mt-2">Active Modifiers</p>
+                        <div id="flags-container" class="flex flex-wrap gap-2">
+                            <!-- Flags inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Explainable AI -->
+        <div class="lg:col-span-12 glass rounded-2xl p-6">
+            <h3 class="text-xl font-semibold text-slate-300 mb-1">Explainable AI (XAI)</h3>
+            <p class="text-sm text-slate-500 mb-2">Variable selection weights from Temporal Fusion Transformer
+                interpreting logic</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+                <div class="lg:col-span-2 h-80 w-full relative">
+                    <!-- XAI Bar chart -->
+                    <canvas id="xaiChart"></canvas>
+                </div>
+
+                <!-- Definition Display Box -->
+                <div id="xai-def-box"
+                    class="lg:col-span-1 bg-slate-800/50 rounded-xl border border-slate-700/50 p-6 flex flex-col justify-start items-start text-left min-h-[16rem]">
+                    <div id="xai-def-placeholder"
+                        class="text-slate-500 italic text-sm text-center w-full h-full flex items-center justify-center">
+                        Select a XAI feature
+                    </div>
+                    <div id="xai-def-content" class="hidden w-full">
+                        <h4 id="xai-def-title"
+                            class="text-lg font-bold text-sky-400 mb-4 uppercase tracking-wider font-mono">FEATURE</h4>
+                        <ul id="xai-def-list"
+                            class="space-y-3 text-sm text-slate-300 list-disc pl-5 marker:text-indigo-500">
+                            <!-- Bullet points injected here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Client-side Logic -->
+    <script>
+        // Chart instances
+        let priceChart = null;
+        let xaiChart = null;
+
+        const XAI_DEFINITIONS = {
+
+            // =========================
+            // OHLCV FEATURES
+            // =========================
+            'open': [
+                "The opening price of Bitcoin at the start of the time interval.",
+                "Helps compare how price evolves within the candle."
+            ],
+            'high': [
+                "The highest price reached during the time interval.",
+                "Represents the peak buying pressure in that period."
+            ],
+            'low': [
+                "The lowest price reached during the time interval.",
+                "Indicates the strongest selling pressure."
+            ],
+            'close': [
+                "The final trading price at the end of the interval.",
+                "Acts as the primary reference for all technical indicators."
+            ],
+            'volume': [
+                "Total traded volume of Bitcoin during the interval.",
+                "Validates the strength of price movements.",
+                "High volume confirms trends, low volume signals weak moves."
+            ],
+
+            // =========================
+            // TECHNICAL INDICATORS
+            // =========================
+            'macd': [
+                "Moving Average Convergence Divergence, a momentum-based trend indicator.",
+                "Helps detect trend direction and strength.",
+                "Extreme values indicate strong bullish or bearish momentum."
+            ],
+            'bb_width': [
+                "Bollinger Band Width measuring market volatility.",
+                "Wider bands indicate high volatility, narrow bands indicate consolidation.",
+                "Helps detect breakout or squeeze conditions."
+            ],
+            'atr_14': [
+                "Average True Range over 14 periods representing market volatility.",
+                "Higher ATR means larger price swings.",
+                "Used to adjust model sensitivity during volatile conditions."
+            ],
+
+            // =========================
+            // SENTIMENT FEATURES
+            // =========================
+            'vader_score': [
+                "Lexicon-based sentiment score from social media text.",
+                "Captures immediate emotional reactions like fear or hype.",
+                "Useful for detecting sudden retail-driven movements."
+            ],
+            'roberta_score': [
+                "Transformer-based sentiment score capturing deeper contextual meaning.",
+                "Understands complex financial language and hidden sentiment.",
+                "Helps model long-term narrative and market perception."
+            ],
+            'sentiment_missing': [
+                "Indicates absence of sentiment data for a given time period.",
+                "Helps the model handle missing or sparse social signals.",
+                "Prevents misleading predictions due to lack of sentiment input."
+            ],
+
+            // =========================
+            // TECHNICAL SIGNALS / FLAGS
+            // =========================
+            'ema_reversion_signal': [
+                "Signal based on EMA crossover (EMA 7 vs EMA 21).",
+                "Indicates potential trend reversal or continuation.",
+                "Used to capture mean reversion opportunities."
+            ],
+            'high_atr': [
+                "Flag indicating high volatility conditions based on ATR.",
+                "Signals unstable market with large price swings.",
+                "Helps model adjust risk during extreme conditions."
+            ],
+            'macd_extreme_flag': [
+                "Indicates extreme MACD values.",
+                "Suggests strong momentum or possible overextension.",
+                "Useful for identifying breakout or reversal zones."
+            ],
+
+            // =========================
+            // SOCIAL MEDIA ACTIVITY
+            // =========================
+            'log_tweet_count': [
+                "Log-scaled count of tweets related to the asset.",
+                "Represents overall market attention and activity.",
+                "High values indicate strong public interest and possible volatility."
+            ],
+            'tweet_spike': [
+                "Flag indicating sudden surge in tweet activity.",
+                "Captures unusual social media hype or panic.",
+                "Often precedes large price movements."
+            ],
+
+            // =========================
+            // TIME FEATURES (NEW)
+            // =========================
+            'hour': [
+                "Represents the hour of the day (0–23).",
+                "Helps model learn time-based volatility patterns."
+            ],
+            'day': [
+                "Represents the day of the week.",
+                "Encodes weekly behavioral patterns (e.g., weekend low activity)."
+            ],
+            'minute': [
+                "Represents the minute within the hour.",
+                "Captures fine-grained intraday timing patterns."
+            ],
+
+            // =========================
+            // META
+            // =========================
+            'date': [
+                "Timestamp representing the exact time of the data point.",
+                "Used to align market data with sentiment and technical indicators.",
+                "Ensures proper sequencing for time-series prediction."
+            ],
+            'asset': [
+                "Represents the cryptocurrency being analyzed (e.g., BTC).",
+                "Helps generalize the model across different assets.",
+                "Used as contextual information in multi-asset setups."
+            ]
+        };
+
+        const DEFAULT_DEF = [
+            "This feature captures part of the structural market behavior.",
+            "Contributes to the nuanced Temporal Fusion Transformer attention mechanism.",
+            "Combined with other signals, it shapes the final price projection."
+        ];
+
+        function showXaiDef(featureName) {
+            const contentDiv = document.getElementById('xai-def-content');
+            const placeholderDiv = document.getElementById('xai-def-placeholder');
+            const titleEl = document.getElementById('xai-def-title');
+            const listEl = document.getElementById('xai-def-list');
+
+            const cleanName = featureName.toLowerCase().trim();
+            let defs = DEFAULT_DEF;
+
+            for (const key in XAI_DEFINITIONS) {
+                if (cleanName.includes(key)) {
+                    defs = XAI_DEFINITIONS[key];
+                    break;
+                }
+            }
+
+            titleEl.textContent = featureName;
+            listEl.innerHTML = '';
+            defs.forEach(d => {
+                const li = document.createElement('li');
+                li.textContent = d;
+                listEl.appendChild(li);
+            });
+
+            placeholderDiv.classList.add('hidden');
+            contentDiv.classList.remove('hidden');
+        }
+
+        // Colors
+        const gridColor = 'rgba(255, 255, 255, 0.05)';
+        const textColor = '#94a3b8'; // slate-400
+
+        function initCharts() {
+            // Price Line Chart
+            const ctxPrice = document.getElementById('priceChart').getContext('2d');
+
+            // Gradient fill for line
+            const gradient = ctxPrice.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(56, 189, 248, 0.3)');
+            gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+
+            priceChart = new Chart(ctxPrice, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Close Price',
+                            data: [],
+                            borderColor: '#818cf8',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            tension: 0.3,
+                            fill: true,
+                            backgroundColor: gradient,
+                            pointBackgroundColor: '#818cf8',
+                            pointStyle: 'rectRounded',
+                        },
+                        {
+                            label: 'Predicted',
+                            data: [],
+                            borderColor: '#34d399', // Emerald
+                            backgroundColor: '#34d399',
+                            borderWidth: 2,
+                            borderDash: [6, 6],
+                            pointRadius: 4,
+                            pointBackgroundColor: '#34d399',
+                            pointStyle: 'rectRounded',
+                            showLine: true,
+                            fill: false,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: textColor,
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            usePointStyle: true,
+                            boxPadding: 4,
+                            filter: function (context) {
+                                if (context.datasetIndex === 1) {
+                                    return context.dataIndex === context.chart.data.labels.length - 1;
+                                }
+                                return true;
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                callback: function (value) { return '$' + value.toLocaleString(); }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // XAI Horizontal Bar Chart
+            const ctxXai = document.getElementById('xaiChart').getContext('2d');
+            xaiChart = new Chart(ctxXai, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Feature Importance (%)',
+                        data: [],
+                        backgroundColor: '#c084fc', // purple
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Makes it horizontal
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: function (event, elements) {
+                        if (elements.length > 0) {
+                            const dataIndex = elements[0].index;
+                            const feature = this.data.labels[dataIndex];
+                            showXaiDef(feature);
+                        }
+                    },
+                    onHover: function (event, elements) {
+                        event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            callbacks: {
+                                label: function (context) {
+                                    return context.parsed.x.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor },
+                            min: 0
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: textColor, font: { family: 'monospace' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch('/api/live-data/');
+                if (!res.ok) return;
+                const data = await res.json();
+
+                if (data.error) {
+                    console.log(data.error);
+                    return;
+                }
+
+                updateDashboard(data);
+            } catch (e) {
+                console.error("Failed to fetch data", e);
+            }
+        }
+
+        function updateDashboard(data) {
+            const live = data.live;
+            const history = data.history || [];
+
+            // 1. Update text elements
+            document.getElementById('last-update').textContent = new Date(live.timestamp).toLocaleTimeString();
+            document.getElementById('current-price').textContent = '$' + live.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('target-price').textContent = '$' + live.target_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const trendEl = document.getElementById('trend-signal');
+            const actionEl = document.getElementById('trade-action');
+            trendEl.textContent = live.direction + ' (' + (live.pct_change > 0 ? '+' : '') + live.pct_change.toFixed(3) + '%)';
+
+            if (live.direction === 'UP') {
+                trendEl.className = 'text-2xl font-bold text-center text-emerald-400';
+                actionEl.textContent = "ACTION: LONG SIGNAL";
+                actionEl.className = "text-center font-mono text-sm mt-1 text-emerald-300";
+            } else {
+                trendEl.className = 'text-2xl font-bold text-center text-rose-400';
+                actionEl.textContent = "ACTION: SHORT SIGNAL";
+                actionEl.className = "text-center font-mono text-sm mt-1 text-rose-300";
+            }
+
+            // NLP stats
+            document.getElementById('tweet-count').textContent = live.tweet_count;
+            document.getElementById('vader-score').textContent = live.vader.toFixed(3);
+
+            const robertaEl = document.getElementById('roberta-score');
+            robertaEl.textContent = live.roberta.toFixed(3);
+            if (live.roberta > 0) robertaEl.className = "text-2xl font-mono font-semibold text-emerald-400";
+            else if (live.roberta < 0) robertaEl.className = "text-2xl font-mono font-semibold text-rose-400";
+            else robertaEl.className = "text-2xl font-mono font-semibold text-slate-300";
+
+            // Map -1 to 1 into 0 to 100% for progress bar
+            const mappedRoberta = ((live.roberta + 1) / 2) * 100;
+            document.getElementById('roberta-bar').style.width = mappedRoberta + '%';
+
+            // Technical stats
+            document.getElementById('macd-val').textContent = live.macd.toFixed(4);
+            document.getElementById('atr-val').textContent = live.atr.toFixed(4);
+            document.getElementById('volume-val').textContent = live.volume.toFixed(4);
+
+            const flagsContainer = document.getElementById('flags-container');
+            flagsContainer.innerHTML = '';
+            if (live.flags && live.flags.length > 0) {
+                live.flags.forEach(flag => {
+                    const span = document.createElement('span');
+                    span.className = 'px-2 py-1 bg-indigo-500/20 text-indigo-300 text-xs rounded border border-indigo-500/30';
+                    span.textContent = flag;
+                    flagsContainer.appendChild(span);
+                });
+            } else {
+                flagsContainer.innerHTML = '<span class="text-slate-500 text-sm italic">No active anomaly flags</span>';
+            }
+
+            // 2. Update Charts
+            if (history.length > 0) {
+                const labels = history.map(h => {
+                    const d = new Date(h.timestamp);
+                    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+                });
+
+                const prices = history.map(h => h.price);
+
+                // Add a simulated future point for the visual target
+                const lastDate = new Date(history[history.length - 1].timestamp);
+                lastDate.setMinutes(lastDate.getMinutes() + 1);
+                const nextTime = lastDate.getHours().toString().padStart(2, '0') + ':' + lastDate.getMinutes().toString().padStart(2, '0');
+
+                labels.push(nextTime);
+                prices.push(null); // Actual price for next minute is unknown
+
+                // Set up the predicted path joining line
+                const predData = new Array(labels.length).fill(null);
+
+                if (history.length > 0) {
+                    // Start dotted line at the current actual price
+                    predData[predData.length - 2] = history[history.length - 1].price;
+                    // End dotted line at the predicted target
+                    predData[predData.length - 1] = live.target_price;
+                }
+
+                const targetColor = live.target_price > history[history.length - 1].price ? '#34d399' : '#fb7185';
+                priceChart.data.datasets[1].borderColor = targetColor;
+                priceChart.data.datasets[1].backgroundColor = targetColor;
+
+                const ptColors = new Array(labels.length).fill(targetColor);
+                if (ptColors.length >= 2) {
+                    ptColors[ptColors.length - 2] = '#818cf8'; // blue 
+                }
+
+                priceChart.data.datasets[1].pointBackgroundColor = ptColors;
+                priceChart.data.datasets[1].pointBorderColor = ptColors;
+
+                priceChart.data.labels = labels;
+                priceChart.data.datasets[0].data = prices;
+                priceChart.data.datasets[1].data = predData;
+                priceChart.update();
+            }
+
+            // Update XAI Chart
+            if (live.top_features && live.top_features.length > 0) {
+                const feats = live.top_features.map(f => f.feature);
+                const weights = live.top_features.map(f => f.importance * 100);
+
+                xaiChart.data.labels = feats;
+                xaiChart.data.datasets[0].data = weights;
+                xaiChart.update();
+            }
+        }
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            fetchData();
+            // Poll every 5 seconds
+            setInterval(fetchData, 5000);
+        });
+    </script>
+</body>
+
+</html>
